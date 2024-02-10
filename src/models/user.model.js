@@ -73,6 +73,7 @@ userSchema.methods.generateAccessToken = function(){
         }
     )
 }
+
 userSchema.methods.generateRefereshToken = function(){
     return jwt.sign(
         {
@@ -80,7 +81,7 @@ userSchema.methods.generateRefereshToken = function(){
         },
         process.env.REFERESH_TOKEN_SECRET,
         {
-            expiresIn: process.env.REFERESH_TOKEN_SECRET
+            expiresIn: process.env.REFERESH_TOKEN_EXPIRY
         }
     )
 }
