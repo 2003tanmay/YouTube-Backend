@@ -29,5 +29,4 @@ cloudinary.uploader.upload("https://upload.wikimedia.org/wikipedia/commons/a/ae/
   { public_id: "olympic_flag" }, 
   function(error, result) {console.log(result); });
 
-
 export {uploadOnCloudinary};
