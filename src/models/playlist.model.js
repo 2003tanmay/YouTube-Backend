@@ -19,6 +19,10 @@ const playlistSchema = new Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
     },
+    isPublc: {
+        type: Boolean,
+        default: true,
+    }
 }, {timestamps: true})
 
 export const Playlist = mongoose.model("Playlist", playlistSchema)
