@@ -9,11 +9,7 @@ import {deleteFromCloudinary, uploadOnCloudinary} from "../utils/cloudinary.js"
 const getAllVideos = asyncHandler(async (req, res) => {
     // get all video accroding to parameter given
     // fetch every video details with the owner avatar and channel name
-    // if user id is given then show only userId's video
-    // and show all published and non-published video
-    // get all video according to query. Query can contain -
-    // search video by title or description only
-    // if user id is not given get all published video only and
+    // get all published video only and
     // get all video according to query. Query can contain -
     // search video by title, description or channel name
     // sort the video, user id is given or not by -
@@ -22,66 +18,33 @@ const getAllVideos = asyncHandler(async (req, res) => {
     // by DURATION: Under 4 minutes, 4 - 20 minutes, Over 20 minutes and 
     // by: most popular (by views in desc order), latest (by uploading date), older(by uploading date).
 
-    const { page = 1, limit = 10, query, userId, sortType, sortBy } = req.query;
+    const { page = 1, limit = 10, query, sortType, sortBy } = req.query;
 
     const pipeline = [];
 
-    pipeline.push({
-        $lookup: {
-            from: "users",
-            localField: "owner",
-            foreignField: "_id",
-            as: "ownerDetails",
-        },
-    });
+    // Fetch only published videos
+    pipeline.push({ $match: { isPublished: true } });
 
-    // Unwind ownerDetails array
-    pipeline.push({
-        $unwind: "$ownerDetails",
-    });
-
-    if (userId) {
-        if (!mongoose.isValidObjectId(userId)) {
-            throw new ApiError(400, "Invalid UserId");
-        }
-
-        // Match videos by owner (channel) ID
+    // If query is provided, perform search
+    if (query) {
         pipeline.push({
-            $match: {
-                owner: new mongoose.Types.ObjectId(userId),
-            },
+            $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "ownerDetails"
+            }
         });
-
-        if (query) {
-            // Search by keywords in title, description, and channel name
-            pipeline.push({
-                $search: {
-                    index: "search-videos",
-                    text: {
-                        query: query,
-                        path: ["title", "description"],
-                    },
-                },
-            });
-        }
-    }
-
-    if (!userId) {
-        // Fetch only published videos if userId is not provided
-        pipeline.push({ $match: { isPublished: true } });
-
-        if (query) {
-            // Search by keywords in title, description, and channel name
-            pipeline.push({
-                $search: {
-                    index: "search-videos",
-                    text: {
-                        query: query,
-                        path: ["title", "description", "ownerDetails.fullname", "ownerDetails.username"],
-                    },
-                },
-            });
-        }
+        pipeline.push({ $unwind: "$ownerDetails" });
+        pipeline.push({
+            $search: {
+                index: "search-videos",
+                text: {
+                    query: query,
+                    path: ["title", "description", "ownerDetails.fullname", "ownerDetails.username"]
+                }
+            }
+        });
     }
 
     // Sorting criteria
@@ -91,10 +54,10 @@ const getAllVideos = asyncHandler(async (req, res) => {
             sortCriteria.createdAt = sortType === "desc" ? -1 : 1;
             break;
         case "duration":
-            sortCriteria.duration = 1; // Sorting by duration (ascending)
+            sortCriteria.duration = sortType === "asc" ? 1 : -1;
             break;
         case "popularity":
-            sortCriteria.views = -1; // Sorting by views (descending)
+            sortCriteria.views = sortType === "desc" ? -1 : 1;
             break;
         default:
             sortCriteria.createdAt = -1; // Default sorting by upload date (latest first)
@@ -104,8 +67,8 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
     // Pagination options
     const options = {
-        page: parseInt(page, 1),
-        limit: parseInt(limit, 10),
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10)
     };
 
     const videos = await Video.aggregatePaginate(
@@ -207,7 +170,7 @@ const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params
 
     if (!isValidObjectId(videoId)) {
-        throw new ApiErrors(400, "Invalid Video ID");
+        throw new ApiError(400, "Invalid Video ID");
     }
 
     const video = await Video.aggregate([
