@@ -79,7 +79,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
     };
 
     if (!channelStats) {
-        throw new ApiErrors(500, "Failed to fetch Channel Stats");
+        throw new ApiError(500, "Failed to fetch Channel Stats");
     }
 
     return res
