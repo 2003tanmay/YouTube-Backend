@@ -243,8 +243,6 @@ const updateTweet = asyncHandler(async (req, res) => {
 const deleteTweet = asyncHandler(async (req, res) => {
     // get tweet id from params
     // validate tweet id
-    // get content from body
-    // check content recieved or not
     // find tweet from document
     // check owner of tweet is same as login user or not
     // delete tweet content
