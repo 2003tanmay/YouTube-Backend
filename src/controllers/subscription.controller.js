@@ -182,6 +182,21 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
                             },
                         },
                     },
+                    {
+                        $lookup: {
+                           from: "subscriptions",
+                           localField: "_id",
+                           foreignField: "channel",
+                           as: "subscribers",
+                        },
+                     },
+                     {
+                        $addFields: {
+                           subscribersCount: {
+                              $size: "$subscribers",
+                           },
+                        },
+                     },
                 ],
             },
         },
@@ -194,6 +209,8 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
                     _id: 1,
                     username: 1,
                     fullName: 1,
+                    avatar: 1,
+                    subscribersCount: 1,
                     latestVideo: {
                         _id: 1,
                         "videoFile.url": 1,
