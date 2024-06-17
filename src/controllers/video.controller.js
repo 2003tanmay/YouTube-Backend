@@ -19,9 +19,23 @@ const getAllVideos = asyncHandler(async (req, res) => {
     // by: most popular (by views in desc order), latest (by uploading date), older(by uploading date).
 
     const { page = 1, limit = 10, query, sortType, sortBy } = req.query;
-
     const pipeline = [];
-
+    console.log(query);
+    // If query is provided, perform search
+    if (query) {
+        console.log("in the if ")
+         pipeline.push({
+           $search: {
+                text: {
+                    query: query,
+                    path: ["title", "description", "owner.fullname", "owner.username"],
+                    fuzzy: {
+                            maxEdits: 2, // Optional: Configure fuzzy search tolerance
+                        },
+                }
+            }
+        });
+    }
     // Fetch only published videos
     pipeline.push({ $match: { isPublished: true } });
     pipeline.push({
@@ -50,18 +64,6 @@ const getAllVideos = asyncHandler(async (req, res) => {
         }
     });
 
-    // If query is provided, perform search
-    if (query) {
-        pipeline.push({
-            $search: {
-                index: "search-videos",
-                text: {
-                    query: query,
-                    path: ["title", "description", "ownerDetails.fullname", "ownerDetails.username"]
-                }
-            }
-        });
-    }
 
     // Sorting criteria
     const sortCriteria = {};
@@ -100,6 +102,109 @@ const getAllVideos = asyncHandler(async (req, res) => {
                 "Videos Fetched Successfully"
             ));
 })
+
+// const getSearchedVideos = asyncHandler(async (req, res) => {
+//     console.log("1");
+//     const { page = 1, limit = 10, query, sortType, sortBy } = req.params;
+//     console.log("2");
+//     // Pipeline for searching videos based on owner's fullname or username
+//     const ownerSearchPipeline = [];
+//     if (query) {
+//         ownerSearchPipeline.push({
+//             $lookup: {
+//                 from: "users",
+//                 localField: "owner",
+//                 foreignField: "_id",
+//                 as: "ownerDetails"
+//             }
+//         });
+//         ownerSearchPipeline.push({ $unwind: "$ownerDetails" });
+//         ownerSearchPipeline.push({
+//             $match: {
+//                 $or: [
+//                     { "ownerDetails.fullname": { $regex: query, $options: "i" } },
+//                     { "ownerDetails.username": { $regex: query, $options: "i" } }
+//                 ]
+//             }
+//         });
+//     }
+//     console.log("3");
+//     // Pipeline for searching videos based on title or description
+//     const videoSearchPipeline = [];
+//     if (query) {
+//         videoSearchPipeline.push({
+//             $match: {
+//                 $or: [
+//                     { title: { $regex: query, $options: "i" } },
+//                     { description: { $regex: query, $options: "i" } }
+//                 ]
+//             }
+//         });
+//     }
+//     console.log("4");
+//     // Merge the two pipelines
+//     const searchVideosPipeline = [
+//         ...ownerSearchPipeline,
+//         ...videoSearchPipeline
+//     ];
+//     console.log("5");
+//     // Sorting criteria
+//     const sortCriteria = {};
+//     switch (sortBy) {
+//         case "uploadDate":
+//             sortCriteria.createdAt = sortType === "desc" ? -1 : 1;
+//             break;
+//         case "duration":
+//             sortCriteria.duration = sortType === "asc" ? 1 : -1;
+//             break;
+//         case "popularity":
+//             sortCriteria.views = sortType === "desc" ? -1 : 1;
+//             break;
+//         default:
+//             sortCriteria.createdAt = -1; // Default sorting by upload date (latest first)
+//             break;
+//     }
+//     console.log("6");
+//     searchVideosPipeline.push({ $sort: sortCriteria }); // Example sorting
+//     searchVideosPipeline.push({ $unwind: "$ownerDetails" });
+//     console.log("7");
+//     searchVideosPipeline.push({
+//         $project: {
+//             ownerDetails: {
+//                 avatar: 1,
+//                 fullname: 1
+//             },
+//             title: 1,
+//             description: 1,
+//             createdAt: 1,
+//             duration: 1,
+//             isPublished: 1,
+//             thumbnail: 1,
+//             views: 1,
+//             _id: 1
+//         }
+//     });
+//     console.log("8");
+//     // Pagination options
+//     const options = {
+//         page: parseInt(page, 10),
+//         limit: parseInt(limit, 10)
+//     };
+//     console.log("9");
+//     // Execute video aggregation pipeline
+//     const videos = await Video.aggregatePaginate(
+//         Video.aggregate(searchVideosPipeline),
+//         options
+//     );
+//     console.log("10");
+//     res.status(200).
+//         json(
+//             new ApiResponse(
+//                 200,
+//                 videos,
+//                 "Videos Fetched Successfully"
+//             ));
+// });
 
 const publishAVideo = asyncHandler(async (req, res) => {
     // get video and thumbnail from file
@@ -185,8 +290,6 @@ const getVideoById = asyncHandler(async (req, res) => {
 
     const { videoId } = req.params
 
-    console.log(videoId);
-
     if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid Video ID");
     }
@@ -213,36 +316,36 @@ const getVideoById = asyncHandler(async (req, res) => {
                 as: 'ownerInfo', // Output field name
                 pipeline: [
                     {
-                       $lookup: {
-                          from: "subscriptions",
-                          localField: "_id",
-                          foreignField: "channel",
-                          as: "subscribers",
-                       },
+                        $lookup: {
+                            from: "subscriptions",
+                            localField: "_id",
+                            foreignField: "channel",
+                            as: "subscribers",
+                        },
                     },
                     {
-                       $addFields: {
-                          subscribersCount: {
-                             $size: "$subscribers",
-                          },
-                          isSubscribed: {
-                             $cond: {
-                                if: {
-                                   $in: [req.user?._id, "$subscribers.subscriber"],
+                        $addFields: {
+                            subscribersCount: {
+                                $size: "$subscribers",
+                            },
+                            isSubscribed: {
+                                $cond: {
+                                    if: {
+                                        $in: [req.user?._id, "$subscribers.subscriber"],
+                                    },
+                                    then: true,
+                                    else: false,
                                 },
-                                then: true,
-                                else: false,
-                             },
-                          },
-                       },
+                            },
+                        },
                     },
                     {
-                       $project: {
-                          username: 1,
-                          "avatar.url": 1,
-                          subscribersCount: 1,
-                          isSubscribed: 1,
-                       },
+                        $project: {
+                            username: 1,
+                            "avatar.url": 1,
+                            subscribersCount: 1,
+                            isSubscribed: 1,
+                        },
                     },
                 ],
             },
@@ -254,11 +357,11 @@ const getVideoById = asyncHandler(async (req, res) => {
                 },
                 isLiked: {
                     $cond: {
-                       if: {
-                          $in: [req.user?._id, "$likes.likedBy"],
-                       },
-                       then: true,
-                       else: false,
+                        if: {
+                            $in: [req.user?._id, "$likes.likedBy"],
+                        },
+                        then: true,
+                        else: false,
                     },
                 },
             }
@@ -454,6 +557,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 
 export {
     getAllVideos,
+    // getSearchedVideos,
     publishAVideo,
     getVideoById,
     updateVideo,

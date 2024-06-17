@@ -41,9 +41,30 @@ const videoSchema = new Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
         },
+        // owner: {
+        //     type: mongoose.Schema.Types.ObjectId,
+        //     ref: "User",
+        //     fullname: String,  // Nested field in the owner reference (assuming the User model contains this)
+        //     username: String, // Nested field in the owner reference (assuming the User model contains this)
+        // },
     }, 
     {timestamps: true}
 )
+
+// videoSchema.index({
+//     title: "text",
+//     description: "text",
+//     "owner.fullname": "text",
+//     "owner.username": "text",
+// }, {
+//     name: "search-videos", // Name the full-text search index
+//     weights: {
+//         title: 5, // Adjust weights based on your preference
+//         description: 3,
+//         "owner.fullname": 2,
+//         "owner.username": 1,
+//     }
+// });
 
 videoSchema.plugin(mongooseAggregatePaginate)
 
